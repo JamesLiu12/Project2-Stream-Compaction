@@ -78,13 +78,10 @@ namespace StreamCompaction {
          * Performs prefix-sum (aka scan) on idata, storing the result into odata.
          */
         void scan(int n, int *odata, const int *idata) {
-            timer().startGpuTimer();
-
             if (n <= 0) {
-                timer().endGpuTimer();
                 return;
             }
-            
+
             int* dev_data;
 
             int logn = ilog2ceil(n);
@@ -94,13 +91,15 @@ namespace StreamCompaction {
             cudaMemset(dev_data, 0, sizeof(int) * N);
             cudaMemcpy(dev_data, idata, sizeof(int) * n, cudaMemcpyHostToDevice);
 
+            timer().startGpuTimer();
+
             scanDevice(N, logn, dev_data);
+
+            timer().endGpuTimer();
 
             cudaMemcpy(odata, dev_data, sizeof(int) * n, cudaMemcpyDeviceToHost);
 
             cudaFree(dev_data);
-
-            timer().endGpuTimer();
         }
 
         /**
@@ -113,13 +112,10 @@ namespace StreamCompaction {
          * @returns      The number of elements remaining after compaction.
          */
         int compact(int n, int *odata, const int *idata) {
-            timer().startGpuTimer();
-
             if (n <= 0) {
-                timer().endGpuTimer();
                 return 0;
             }
-            
+
             int* dev_indices;
             int* dev_odata;
             int* dev_idata;
@@ -133,6 +129,8 @@ namespace StreamCompaction {
 
             cudaMemset(dev_indices, 0, sizeof(int) * N);
             cudaMemcpy(dev_idata, idata, sizeof(int) * n, cudaMemcpyHostToDevice);
+
+            timer().startGpuTimer();
             
             constexpr int blockSize = 128;
 
@@ -145,6 +143,8 @@ namespace StreamCompaction {
 
             kernScatter<<<blocksPerGrid, threadsPerBlock>>>(n, dev_odata, dev_idata, dev_indices);
 
+            timer().endGpuTimer();
+
             int count;
             cudaMemcpy(&count, dev_indices + n - 1, sizeof(int), cudaMemcpyDeviceToHost);
             count += (idata[n - 1] != 0);
@@ -155,7 +155,6 @@ namespace StreamCompaction {
             cudaFree(dev_odata);
             cudaFree(dev_idata);
 
-            timer().endGpuTimer();
             return count;
         }
     }

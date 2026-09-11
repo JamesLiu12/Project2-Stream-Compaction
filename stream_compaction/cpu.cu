@@ -61,10 +61,10 @@ namespace StreamCompaction {
          * @returns the number of elements remaining after compaction.
          */
         int compactWithScan(int n, int *odata, const int *idata) {
-            timer().startCpuTimer();
-            
             auto keeps = std::make_unique<int[]>(n);
             auto indices = std::make_unique<int[]>(n);
+            
+            timer().startCpuTimer();
 
             for (int i = 0; i < n; i++) {
                 keeps[i] = idata[i] ? 1 : 0;
