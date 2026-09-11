@@ -14,22 +14,22 @@ namespace StreamCompaction {
 
         __global__ void kernUpSweep(int n, int d, int *data)
         {
-            int index = ((blockIdx.x * blockDim.x + threadIdx.x + 1) << d) - 1;
+            int t = blockIdx.x * blockDim.x + threadIdx.x;
 
-            if (index >= n) {
-                return;
-            }
+            if (t >= (n >> d)) return;
+
+            int index = ((t + 1) << d) - 1;
 
             data[index] += data[index - (1 << (d - 1))];
         }
 
         __global__ void kernDownSweep(int n, int d, int *data)
         {
-            int index = ((blockIdx.x * blockDim.x + threadIdx.x + 1) << d) - 1;
+            int t = blockIdx.x * blockDim.x + threadIdx.x;
 
-            if (index >= n) {
-                return;
-            }
+            if (t >= (n >> d)) return;
+
+            int index = ((t + 1) << d) - 1;
 
             int leftIndex = index - (1 << (d - 1));
 
