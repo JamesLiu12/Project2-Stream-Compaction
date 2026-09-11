@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <memory>
 #include "cpu.h"
 
 #include "common.h"
@@ -12,6 +13,15 @@ namespace StreamCompaction {
             return timer;
         }
 
+        static void scanImpl(int n, int* odata, const int* idata) {
+            int sum = 0;
+            for (int i = 0; i < n; i++) {
+                int value = idata[i];
+                odata[i] = sum;
+                sum += value;
+            }
+        }
+
         /**
          * CPU scan (prefix sum).
          * For performance analysis, this is supposed to be a simple for loop.
@@ -19,7 +29,9 @@ namespace StreamCompaction {
          */
         void scan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
-            // TODO
+            
+            scanImpl(n, odata, idata);
+
             timer().endCpuTimer();
         }
 
@@ -30,9 +42,17 @@ namespace StreamCompaction {
          */
         int compactWithoutScan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
-            // TODO
+            
+            int count = 0;
+
+            for (int i = 0; i < n; i++) {
+                if (idata[i] == 0) continue;
+
+                odata[count++] = idata[i];
+            }
+
             timer().endCpuTimer();
-            return -1;
+            return count;
         }
 
         /**
@@ -42,9 +62,24 @@ namespace StreamCompaction {
          */
         int compactWithScan(int n, int *odata, const int *idata) {
             timer().startCpuTimer();
-            // TODO
+            
+            auto keeps = std::make_unique<int[]>(n);
+            auto indices = std::make_unique<int[]>(n);
+
+            for (int i = 0; i < n; i++) {
+                keeps[i] = idata[i] ? 1 : 0;
+            }
+
+            scanImpl(n, indices.get(), keeps.get());
+
+            for (int i = 0; i < n; i++) {
+                if (keeps[i]) {
+                    odata[indices[i]] = idata[i];
+                }
+            }
+
             timer().endCpuTimer();
-            return -1;
+            return n > 0 ? indices[n - 1] + keeps[n - 1] : 0;
         }
     }
 }
