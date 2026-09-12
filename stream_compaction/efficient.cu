@@ -60,7 +60,7 @@ namespace StreamCompaction {
                 return;
             }
 
-            for (int d = 1; d <= logn; d++) {
+            for (int d = 1; d < logn; d++) {
                 dim3 blocksPerGrid(((N >> d) + blockSize - 1) / blockSize);
                 dim3 threadsPerBlock(blockSize);
 
