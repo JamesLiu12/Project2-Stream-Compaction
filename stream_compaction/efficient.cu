@@ -30,12 +30,12 @@ namespace StreamCompaction {
             if (t >= (n >> d)) return;
 
             int index = ((t + 1) << d) - 1;
-
             int leftIndex = index - (1 << (d - 1));
 
-            int tmpLeft = data[leftIndex];
-            data[leftIndex] = data[index];
-            data[index] += tmpLeft;
+            int right = 1 << d == n ? 0 : data[index];
+
+            data[index] = right + data[leftIndex];
+            data[leftIndex] = right;
         }
 
         __global__ void kernScatter(int n, int *odata, int* idata, int *indicies)
@@ -55,15 +55,18 @@ namespace StreamCompaction {
         {
             constexpr int blockSize = 128;
 
+            if (N == 1) {
+                cudaMemset(dev_data, 0, sizeof(int));
+                return;
+            }
+
             for (int d = 1; d <= logn; d++) {
                 dim3 blocksPerGrid(((N >> d) + blockSize - 1) / blockSize);
                 dim3 threadsPerBlock(blockSize);
 
-                kernUpSweep << <blocksPerGrid, threadsPerBlock >> > (N, d, dev_data);
+                kernUpSweep<<<blocksPerGrid, threadsPerBlock>>>(N, d, dev_data);
                 checkCUDAError("kernUpSweep");
             }
-
-            cudaMemset(dev_data + N - 1, 0, sizeof(int));
 
             for (int d = logn; d >= 1; d--) {
                 dim3 blocksPerGrid(((N >> d) + blockSize - 1) / blockSize);
