@@ -6,6 +6,7 @@
 
 namespace StreamCompaction {
     namespace Sort {
+        using Common::blockSize;
         using StreamCompaction::Common::PerformanceTimer;
         PerformanceTimer& timer()
         {
@@ -80,8 +81,6 @@ namespace StreamCompaction {
             int* dev_oneOffsets, 
             int* dev_dstIndices)
         {
-            constexpr int blockSize = 128;
-
             int logn = ilog2ceil(n);
             int N = 1 << logn;
 

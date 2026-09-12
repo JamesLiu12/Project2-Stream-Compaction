@@ -5,6 +5,7 @@
 
 namespace StreamCompaction {
     namespace Naive {
+        using Common::blockSize;
         using StreamCompaction::Common::PerformanceTimer;
         PerformanceTimer& timer()
         {
@@ -54,7 +55,6 @@ namespace StreamCompaction {
 
             timer().startGpuTimer();
 
-            constexpr int blockSize = 128;
             const dim3 blocksPerGrid = (n + blockSize - 1) / blockSize;
             const dim3 threadsPerBlock = dim3(blockSize);
 

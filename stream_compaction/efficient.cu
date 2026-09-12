@@ -5,6 +5,7 @@
 
 namespace StreamCompaction {
     namespace Efficient {
+        using Common::blockSize;
         using StreamCompaction::Common::PerformanceTimer;
         PerformanceTimer& timer()
         {
@@ -53,8 +54,6 @@ namespace StreamCompaction {
 
         void scanDevice(int N, int logn, int *dev_data)
         {
-            constexpr int blockSize = 128;
-
             if (N == 1) {
                 cudaMemset(dev_data, 0, sizeof(int));
                 return;
@@ -134,8 +133,6 @@ namespace StreamCompaction {
             cudaMemcpy(dev_idata, idata, sizeof(int) * n, cudaMemcpyHostToDevice);
 
             timer().startGpuTimer();
-            
-            constexpr int blockSize = 128;
 
             dim3 blocksPerGrid((n + blockSize - 1) / blockSize);
             dim3 threadsPerBlock(blockSize);
