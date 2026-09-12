@@ -51,7 +51,7 @@ namespace StreamCompaction {
             }
         }
 
-        static void scanDevice(int N, int logn, int *dev_data)
+        void scanDevice(int N, int logn, int *dev_data)
         {
             constexpr int blockSize = 128;
 
