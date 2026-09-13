@@ -560,3 +560,6 @@ xcuserdata
 *.xccheckout
 *.moved-aside
 *.xcuserstate
+
+results/
+scripts/
