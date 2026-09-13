@@ -4,7 +4,7 @@ CUDA Stream Compaction
 **University of Pennsylvania, CIS 565: GPU Programming and Architecture, Project 2**
 
 * Sizhe Liu
-  * [LinkedIn](https://www.linkedin.com/in/sizhe-liu-2726492b6/), [GithubGithub](https://github.com/JamesLiu12).
+  * [LinkedIn](https://www.linkedin.com/in/sizhe-liu-2726492b6/), [Github](https://github.com/JamesLiu12).
 * Tested on: Windows 11 Pro, i9-12900H @ 2.50GHz 32GB, RTX 3090 24GB (Personal Computer)
 * CUDA 13.3; Visual Studio 2022; Release build.
 
