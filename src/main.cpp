@@ -13,13 +13,19 @@
 #include <stream_compaction/efficient.h>
 #include <stream_compaction/thrust.h>
 #include <stream_compaction/sort.h>
+#include <stream_compaction/shared.h>
 #include "testing_helpers.hpp"
 
-const int SIZE = 1 << 25; // feel free to change the size of array
+const int SIZE = 1 << 22; // feel free to change the size of array
 const int NPOT = SIZE - 3; // Non-Power-Of-Two
+const int SHARED_NAIVE_SIZE = 1 << 10;
+const int SHARED_EFFICIENT_SIZE = 1 << 11;
 int *a = new int[SIZE];
 int *b = new int[SIZE];
 int *c = new int[SIZE];
+int sharedInput[SHARED_EFFICIENT_SIZE];
+int sharedExpected[SHARED_EFFICIENT_SIZE];
+int sharedOutput[SHARED_EFFICIENT_SIZE];
 
 int main(int argc, char* argv[]) {
     // Scan tests
@@ -96,6 +102,56 @@ int main(int argc, char* argv[]) {
     printElapsedTime(StreamCompaction::Thrust::timer().getGpuElapsedTimeForPreviousOperation(), "(CUDA Measured)");
     //printArray(NPOT, c, true);
     printCmpResult(NPOT, b, c);
+
+    printf("\n");
+
+    printf("******************************\n");
+    printf("** SHARED MEMORY SCAN TESTS **\n");
+    printf("******************************\n");
+
+    // Shared memory scan tests
+
+    genArray(SHARED_EFFICIENT_SIZE - 1, sharedInput, 50);
+    sharedInput[SHARED_EFFICIENT_SIZE - 1] = 0;
+    printArray(SHARED_EFFICIENT_SIZE, sharedInput, true);
+
+    zeroArray(SHARED_EFFICIENT_SIZE, sharedExpected);
+    printDesc("cpu scan, power-of-two");
+    StreamCompaction::CPU::scan(SHARED_EFFICIENT_SIZE, sharedExpected, sharedInput);
+    printElapsedTime(StreamCompaction::CPU::timer().getCpuElapsedTimeForPreviousOperation(), "(std::chrono Measured)");
+    printArray(SHARED_EFFICIENT_SIZE, sharedExpected, true);
+
+    zeroArray(SHARED_EFFICIENT_SIZE, sharedOutput);
+    printDesc("cpu scan, non-power-of-two");
+    StreamCompaction::CPU::scan(SHARED_EFFICIENT_SIZE - 3, sharedOutput, sharedInput);
+    printElapsedTime(StreamCompaction::CPU::timer().getCpuElapsedTimeForPreviousOperation(), "(std::chrono Measured)");
+    printArray(SHARED_EFFICIENT_SIZE - 3, sharedOutput, true);
+    printCmpResult(SHARED_EFFICIENT_SIZE - 3, sharedExpected, sharedOutput);
+
+    zeroArray(SHARED_EFFICIENT_SIZE, sharedOutput);
+    printDesc("shared naive scan, power-of-two");
+    StreamCompaction::Shared::naiveScan(SHARED_NAIVE_SIZE, sharedOutput, sharedInput);
+    printElapsedTime(StreamCompaction::Shared::timer().getGpuElapsedTimeForPreviousOperation(), "(CUDA Measured)");
+    //printArray(SHARED_NAIVE_SIZE, sharedOutput, true);
+    printCmpResult(SHARED_NAIVE_SIZE, sharedExpected, sharedOutput);
+    zeroArray(SHARED_EFFICIENT_SIZE, sharedOutput);
+    printDesc("shared naive scan, non-power-of-two");
+    StreamCompaction::Shared::naiveScan(SHARED_NAIVE_SIZE - 3, sharedOutput, sharedInput);
+    printElapsedTime(StreamCompaction::Shared::timer().getGpuElapsedTimeForPreviousOperation(), "(CUDA Measured)");
+    //printArray(SHARED_NAIVE_SIZE - 3, sharedOutput, true);
+    printCmpResult(SHARED_NAIVE_SIZE - 3, sharedExpected, sharedOutput);
+    zeroArray(SHARED_EFFICIENT_SIZE, sharedOutput);
+    printDesc("shared efficient scan, power-of-two");
+    StreamCompaction::Shared::efficientScan(SHARED_EFFICIENT_SIZE, sharedOutput, sharedInput);
+    printElapsedTime(StreamCompaction::Shared::timer().getGpuElapsedTimeForPreviousOperation(), "(CUDA Measured)");
+    //printArray(SHARED_EFFICIENT_SIZE, sharedOutput, true);
+    printCmpResult(SHARED_EFFICIENT_SIZE, sharedExpected, sharedOutput);
+    zeroArray(SHARED_EFFICIENT_SIZE, sharedOutput);
+    printDesc("shared efficient scan, non-power-of-two");
+    StreamCompaction::Shared::efficientScan(SHARED_EFFICIENT_SIZE - 3, sharedOutput, sharedInput);
+    printElapsedTime(StreamCompaction::Shared::timer().getGpuElapsedTimeForPreviousOperation(), "(CUDA Measured)");
+    //printArray(SHARED_EFFICIENT_SIZE - 3, sharedOutput, true);
+    printCmpResult(SHARED_EFFICIENT_SIZE - 3, sharedExpected, sharedOutput);
 
     printf("\n");
     printf("*****************************\n");

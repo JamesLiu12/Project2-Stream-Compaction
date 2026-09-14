@@ -32,7 +32,7 @@ inline int ilog2ceil(int x) {
 
 namespace StreamCompaction {
     namespace Common {
-        constexpr int blockSize = 128;
+        constexpr int blockSize = 64;
 
         __global__ void kernMapToBoolean(int n, int *bools, const int *idata);
 

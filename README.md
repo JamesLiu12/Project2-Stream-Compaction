@@ -75,6 +75,24 @@ Each thread handles one active pair of tree nodes. At level `d`, only `N >> d` t
 
 I also removed the separate root reset, `cudaMemset(dev_data + N - 1, 0, sizeof(int))`. The first downsweep uses zero as the root prefix directly. The final upsweep is skipped (`d < logn`) because it only computes the total sum that would be discarded. For `N > 1`, this saves one kernel launch and one memset; `N == 1` still needs a separate reset.
 
+## Extra Credit: Shared Memory Scan
+
+Both Naive and Work-Efficient scan also have a shared memory version. Each loads the input into shared memory, completes the scan inside one block, and writes the result back to global memory. `__syncthreads()` keeps threads synchronized between steps.
+
+![Global and shared memory scan comparison](images/performance/shared_scan.svg)
+
+The comparison uses 32 to 1024 elements, with 10 runs per size and the same median and error bars as above. Global Naive uses block size 256; both shared versions launch one block of 1024 threads. Shared Naive supports up to 1024 elements and Shared Efficient up to 2048, so the graph stays within their common range.
+
+| Implementation | Time at 1024 elements (ms) | Speedup over Global Naive |
+|---|---:|---:|
+| Global Naive | 0.1654 | 1.00× |
+| Shared Naive | 0.0502 | 3.30× |
+| Shared Efficient | 0.0225 | 7.34× |
+
+Both shared versions are faster throughout this range. Keeping intermediate results in shared memory avoids repeated global memory reads and writes. They also finish in one kernel launch, which matters for these small arrays. The speedup includes both benefits.
+
+Shared Efficient is fastest here. The shared versions use fixed-size buffers and scan loops, so smaller inputs do not reduce their work much. The spike at 256 elements also has wide error bars, making it a less reliable size-specific result. These single-block implementations would need an additional scan across blocks to handle larger arrays.
+
 ## Extra Credit: Radix Sort
 
 The radix sort processes one bit at a time for 32 passes. Flipping the sign bit in the sorting key allows negative integers to be sorted correctly as well.
@@ -96,74 +114,97 @@ The tests cover power-of-two and non-power-of-two inputs, compaction, and radix 
 ****************
 ** SCAN TESTS **
 ****************
-    [   9  27  15  10  41   0  49  26  35   0   0  36  29 ...  29   0 ]
+    [   5  49  13  38  27  17  29  15  12  45  29   3  10 ...  10   0 ]
 ==== cpu scan, power-of-two ====
-   elapsed time: 1.7219ms    (std::chrono Measured)
-    [   0   9  36  51  61 102 102 151 177 212 212 212 248 ... 102675936 102675965 ]
+   elapsed time: 1.6859ms    (std::chrono Measured)
+    [   0   5  54  67 105 132 149 178 193 205 250 279 282 ... 102726011 102726021 ]
 ==== cpu scan, non-power-of-two ====
-   elapsed time: 1.7183ms    (std::chrono Measured)
-    [   0   9  36  51  61 102 102 151 177 212 212 212 248 ... 102675860 102675902 ]
-    passed 
+   elapsed time: 1.7296ms    (std::chrono Measured)
+    [   0   5  54  67 105 132 149 178 193 205 250 279 282 ... 102725971 102725989 ]
+    passed
 ==== naive scan, power-of-two ====
-   elapsed time: 1.25811ms    (CUDA Measured)
-    passed 
+   elapsed time: 1.35069ms    (CUDA Measured)
+    passed
 ==== naive scan, non-power-of-two ====
-   elapsed time: 1.17507ms    (CUDA Measured)
-    passed 
+   elapsed time: 1.25523ms    (CUDA Measured)
+    passed
 ==== work-efficient scan, power-of-two ====
-   elapsed time: 0.880192ms    (CUDA Measured)
-    passed 
+   elapsed time: 1.00592ms    (CUDA Measured)
+    passed
 ==== work-efficient scan, non-power-of-two ====
-   elapsed time: 0.944096ms    (CUDA Measured)
-    passed 
+   elapsed time: 0.911776ms    (CUDA Measured)
+    passed
 ==== thrust scan, power-of-two ====
-   elapsed time: 0.628832ms    (CUDA Measured)
-    passed 
+   elapsed time: 0.688128ms    (CUDA Measured)
+    passed
 ==== thrust scan, non-power-of-two ====
-   elapsed time: 0.701312ms    (CUDA Measured)
-    passed 
+   elapsed time: 0.861184ms    (CUDA Measured)
+    passed
+
+******************************
+** SHARED MEMORY SCAN TESTS **
+******************************
+    [   5  49  13  38  27  17  29  15  12  45  29   3  10 ...  16   0 ]
+==== cpu scan, power-of-two ====
+   elapsed time: 0.001ms    (std::chrono Measured)
+    [   0   5  54  67 105 132 149 178 193 205 250 279 282 ... 50196 50212 ]
+==== cpu scan, non-power-of-two ====
+   elapsed time: 0.0008ms    (std::chrono Measured)
+    [   0   5  54  67 105 132 149 178 193 205 250 279 282 ... 50114 50157 ]
+    passed
+==== shared naive scan, power-of-two ====
+   elapsed time: 0.080896ms    (CUDA Measured)
+    passed
+==== shared naive scan, non-power-of-two ====
+   elapsed time: 0.014336ms    (CUDA Measured)
+    passed
+==== shared efficient scan, power-of-two ====
+   elapsed time: 0.029696ms    (CUDA Measured)
+    passed
+==== shared efficient scan, non-power-of-two ====
+   elapsed time: 0.017408ms    (CUDA Measured)
+    passed
 
 *****************************
 ** STREAM COMPACTION TESTS **
 *****************************
-    [   1   3   1   2   3   0   1   0   3   0   0   2   1 ...   1   0 ]
+    [   3   3   3   2   3   3   1   3   0   1   1   3   0 ...   0   0 ]
 ==== cpu compact without scan, power-of-two ====
-   elapsed time: 7.9118ms    (std::chrono Measured)
-    [   1   3   1   2   3   1   3   2   1   3   3   1   2 ...   2   1 ]
-    passed 
+   elapsed time: 9.0876ms    (std::chrono Measured)
+    [   3   3   3   2   3   3   1   3   1   1   3   3   3 ...   2   2 ]
+    passed
 ==== cpu compact without scan, non-power-of-two ====
-   elapsed time: 7.8696ms    (std::chrono Measured)
-    [   1   3   1   2   3   1   3   2   1   3   3   1   2 ...   1   2 ]
-    passed 
+   elapsed time: 9.9956ms    (std::chrono Measured)
+    [   3   3   3   2   3   3   1   3   1   1   3   3   3 ...   2   2 ]
+    passed
 ==== cpu compact with scan ====
-   elapsed time: 12.0065ms    (std::chrono Measured)
-    [   1   3   1   2   3   1   3   2   1   3   3   1   2 ...   2   1 ]
-    passed 
+   elapsed time: 13.4476ms    (std::chrono Measured)
+    [   3   3   3   2   3   3   1   3   1   1   3   3   3 ...   2   2 ]
+    passed
 ==== work-efficient compact, power-of-two ====
-   elapsed time: 1.06195ms    (CUDA Measured)
-    passed 
+   elapsed time: 1.17206ms    (CUDA Measured)
+    passed
 ==== work-efficient compact, non-power-of-two ====
-   elapsed time: 0.906336ms    (CUDA Measured)
-    passed 
+   elapsed time: 1.00944ms    (CUDA Measured)
+    passed
 
 **********************
 ** RADIX SORT TESTS **
 **********************
-    [ -901116820 1592269647 1036911988 501803631 -506353126 -1469150353 -407123097 -1725644006 -807619672 -1716690643 1583060036 842370173 -77060991 ... 601899222 -1338564959 ]
+    [ -1851372651 1585168950 -1094099216 337292242 -1628411939 -110728936 1454986549 131017244 2145648761 -714912562 1104773626 -1253634976 -1051899939 ... -1954102413 -125548925 ]
 ==== cpu sort, power-of-two ====
-   elapsed time: 285.345ms    (std::chrono Measured)
-    [ -2147483517 -2147480774 -2147480188 -2147479595 -2147476996 -2147475775 -2147474001 -2147473963 -2147473272 -2147472815 -2147468598 -2147465769 -2147465595 ... 2147483439 2147483532 ]
+   elapsed time: 313.724ms    (std::chrono Measured)
+    [ -2147478322 -2147478085 -2147477500 -2147477071 -2147475620 -2147474653 -2147474159 -2147473968 -2147473771 -2147473070 -2147472318 -2147469191 -2147469127 ... 2147479232 2147482727 ]
 ==== radix sort, power-of-two ====
-   elapsed time: 35.7783ms    (CUDA Measured)
-    [ -2147483517 -2147480774 -2147480188 -2147479595 -2147476996 -2147475775 -2147474001 -2147473963 -2147473272 -2147472815 -2147468598 -2147465769 -2147465595 ... 2147483439 2147483532 ]
-    passed 
+   elapsed time: 45.5165ms    (CUDA Measured)
+    [ -2147478322 -2147478085 -2147477500 -2147477071 -2147475620 -2147474653 -2147474159 -2147473968 -2147473771 -2147473070 -2147472318 -2147469191 -2147469127 ... 2147479232 2147482727 ]
+    passed
 ==== cpu sort, non-power-of-two ====
-   elapsed time: 287.995ms    (std::chrono Measured)
-    [ -2147483517 -2147480774 -2147480188 -2147479595 -2147476996 -2147475775 -2147474001 -2147473963 -2147473272 -2147472815 -2147468598 -2147465769 -2147465595 ... 2147483439 2147483532 ]
+   elapsed time: 346.188ms    (std::chrono Measured)
+    [ -2147478322 -2147478085 -2147477500 -2147477071 -2147475620 -2147474653 -2147474159 -2147473968 -2147473771 -2147473070 -2147472318 -2147469191 -2147469127 ... 2147479232 2147482727 ]
 ==== radix sort, non-power-of-two ====
-   elapsed time: 39.541ms    (CUDA Measured)
-Press any key to continue . . . 
-    [ -2147483517 -2147480774 -2147480188 -2147479595 -2147476996 -2147475775 -2147474001 -2147473963 -2147473272 -2147472815 -2147468598 -2147465769 -2147465595 ... 2147483439 2147483532 ]
+   elapsed time: 48.2872ms    (CUDA Measured)
+    [ -2147478322 -2147478085 -2147477500 -2147477071 -2147475620 -2147474653 -2147474159 -2147473968 -2147473771 -2147473070 -2147472318 -2147469191 -2147469127 ... 2147479232 2147482727 ]
     passed
 ```
 
